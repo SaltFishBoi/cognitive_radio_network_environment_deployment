@@ -1,2 +1,2 @@
-# https-github.com-SaltFishBoi-cognitive_radio_network_environment_deployment
+# cognitive_radio_network_environment_deployment
 arduino code
