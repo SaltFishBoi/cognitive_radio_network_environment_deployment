@@ -23,21 +23,40 @@ byte outMessage[2] = {0};           // message to be transmit
 //FOR RECEIVE
 int rx_time = 5;                // rx time in milli seconds
 int ch = 0;                     // channel number declaration and initialization
-byte inMessage[3] = { 0 };           // receive message
+byte inMessage[3] = {0 };           // receive message
+
 
 void bs_process() {
     while (true) {
-        if (state == 0) {
-            Radio.receiveMessage(50, inMessage);
+        if (state == 0) { // try to receive request
+            Radio.receiveMessage(receiveMaxDuration, inMessage);
             if (inMessage[0] == 0) {
                 //no message received
+            }
+            else if (inMessage[0] == cpeRequest) {
+                //receive request
+                outMessage = {bsRequest, 0, inMessage[2], inMessage[3]};
+                Radio.sendMessage(sendDuration, outMessage);
+                state = 1;
             }
             else {
                 //
             }
         }
-        else if (state == 1) {
-
+        else if (state == 1) { // try to receive response
+            Radio.receiveMessage(receiveMaxDuration, inMessage);
+            if (inMessage[0] == 0) {
+                //no message received
+            }
+            else if (inMessage[0] == cpeRespond) {
+                //receive response
+                outMessage = { bsRespond, 0, inMessage[2], inMessage[3] };
+                Radio.sendMessage(sendDuration, outMessage);
+                state = 0;
+            }
+            else {
+                //
+            }
         }
         else if (state == 2) {
 

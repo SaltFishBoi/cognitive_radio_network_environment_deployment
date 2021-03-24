@@ -51,7 +51,7 @@ void Radio::initialize_trans() {
     Serial.println("XX Mode");
 }
 
-void Radio::receive(int maxDuration, byte message[]) {
+void Radio::receiveMessage(int maxDuration, byte message[]) {
     byte buffer[3] = {0};
     unsigned long startTime = millis();   // the time the delay started using current time
 
@@ -80,7 +80,7 @@ void Radio::receive(int maxDuration, byte message[]) {
     decode(buffer, message);
 }
 
-void Radio::send(int duration, byte message[]) {
+void Radio::sendMessage(int duration, byte message[]) {
     byte buffer[2] = {0};
     unsigned long startTime = millis();   // the time the delay started using current time
 
