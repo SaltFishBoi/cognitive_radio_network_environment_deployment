@@ -1,7 +1,10 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\base_station",
+    "\\customer_premise_equipment",
+    "\\licensed_band_user"
   ],
-  "SelectedNode": "\\Radio.h",
+  "SelectedNode": "\\RADIO.h",
   "PreviewInSolutionExplorer": false
 }

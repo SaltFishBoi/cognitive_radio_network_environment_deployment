@@ -1,20 +1,23 @@
 ﻿/*
-  Morse.h - Library for Radio transceiver function.
+  RADIO.h - Library for Radio transceiver function.
   Created by Kevin Z. Yu, March 23, 2021.
   Released into the public domain.
 */
 
+#include <Arduino.h>
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
-#include "Radio.h"
+#include "RADIO.h"
 
-Radio::Radio(int pin)
+/*
+RADIO::RADIO(int pin)
 {
   pinMode(pin, OUTPUT);
   _pin = pin;
 }
+*/
 
 // initialize transceiver
-void Radio::initialize_trans() {
+void RADIO::initialize_trans(void) {
     if (ELECHOUSE_cc1101.getCC1101()) {      // Check the CC1101 Spi connection.
         Serial.println("Connection OK");
     }
@@ -51,7 +54,7 @@ void Radio::initialize_trans() {
     Serial.println("XX Mode");
 }
 
-void Radio::receiveMessage(int maxDuration, byte message[]) {
+void RADIO::receiveMessage(int maxDuration, byte *message) {
     byte buffer[3] = {0};
     unsigned long startTime = millis();   // the time the delay started using current time
 
@@ -80,14 +83,14 @@ void Radio::receiveMessage(int maxDuration, byte message[]) {
     decode(buffer, message);
 }
 
-void Radio::sendMessage(int duration, byte message[]) {
+void RADIO::sendMessage(int duration, byte *message) {
     byte buffer[2] = {0};
     unsigned long startTime = millis();   // the time the delay started using current time
 
     encode(message, buffer);
 
     while ((millis() - startTime) < duration) {
-        ELECHOUSE_cc1101.SendData(buffer, 2, 100);
+        ELECHOUSE_cc1101.SendData(buffer, 2, tx_time);
     }
 }
 
@@ -99,14 +102,14 @@ void Radio::sendMessage(int duration, byte message[]) {
 // |        byte1        |        byte2        |
 // ---------------------------------------------
 
-void Radio::decode(byte buffer[], byte message[]) {
+void RADIO::decode(byte *buffer, byte *message) {
     message[0] = buffer[0] >> 4;
     message[1] = buffer[0] & 0x0f; 
     message[2] = buffer[1] >> 4;
     message[3] = buffer[1] & 0x0f;
 }
 
-void Radio::encode(byte message[], byte buffer[]) {
+void RADIO::encode(byte *message, byte *buffer) {
     buffer[0] = message[0] << 4;
     buffer[0] = buffer[0] + message[1];
     buffer[1] = message[2] << 4;

@@ -1,4 +1,4 @@
-﻿//File Name: Base Station
+//File Name: Base Station
 //Project Name: Cogntiive Radio Network Enviroment Deployment
 //Engineer: Kevin Yu
 //Date: 3-22-2021
@@ -9,21 +9,15 @@
 //https://github.com/LSatan/SmartRC-CC1101-Driver-Lib
 //by Little_S@tan
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
-#include <Radio.h>
+#include <RADIO.h>
 
 //STATE
 int state = 0;                  // 0 = IDEL
 
-//FOR TRANSMIT
-//byte transmitt_byte[11] = { 72,101,108,108,111,32,87,111,114,108,100 };
-//char* transmitt_char = "Hello World";
-int tx_time = 3;                // tx time in milli seconds
-byte outMessage[2] = {0};           // message to be transmit 
 
-//FOR RECEIVE
-int rx_time = 5;                // rx time in milli seconds
+byte outMessage[4] = {0};           // message to be transmit 
 int ch = 0;                     // channel number declaration and initialization
-byte inMessage[3] = {0 };           // receive message
+byte inMessage[4] = {0};           // receive message
 
 
 void bs_process() {
@@ -35,7 +29,10 @@ void bs_process() {
             }
             else if (inMessage[0] == cpeRequest) {
                 //receive request
-                outMessage = {bsRequest, 0, inMessage[2], inMessage[3]};
+                outMessage[0] = bsRespond;
+                outMessage[1] = 0;
+                outMessage[2] = inMessage[2];
+                outMessage[3] = inMessage[3];
                 Radio.sendMessage(sendDuration, outMessage);
                 state = 1;
             }
@@ -50,7 +47,10 @@ void bs_process() {
             }
             else if (inMessage[0] == cpeRespond) {
                 //receive response
-                outMessage = { bsRespond, 0, inMessage[2], inMessage[3] };
+                outMessage[0] = bsRespond;
+                outMessage[1] = 0;
+                outMessage[2] = inMessage[2];
+                outMessage[3] = inMessage[3];
                 Radio.sendMessage(sendDuration, outMessage);
                 state = 0;
             }
@@ -73,14 +73,20 @@ void setup()
 
     //  initialize tx rx
     Radio.initialize_trans();
-
-    delayStart = millis();
-    delayRunning = true;
 }
 
 void loop() {
+    Serial.println("Let's go");
+    //outMessage[0] = bsRespond;
+    //outMessage[1] = 0;
+    //outMessage[2] = 3;
+    //outMessage[3] = 4;
+    //Radio.sendMessage(sendDuration, outMessage);
+    Radio.receiveMessage(receiveMaxDuration, inMessage);
+    Serial.println(inMessage[0]);
+    Serial.println(inMessage[1]);
+    Serial.println(inMessage[2]);
+    Serial.println(inMessage[3]);
 
+    Serial.println();
 }
-
-
-

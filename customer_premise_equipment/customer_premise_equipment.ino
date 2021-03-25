@@ -9,7 +9,7 @@
 //https://github.com/LSatan/SmartRC-CC1101-Driver-Lib
 //by Little_S@tan
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
-#include <Radio.h>
+#include <RADIO.h>
 
 //FOR TRANSMIT
 //byte transmitt_byte[11] = { 72,101,108,108,111,32,87,111,114,108,100 };
