@@ -54,33 +54,39 @@ void RADIO::initialize_trans(void) {
     Serial.println("XX Mode");
 }
 
-void RADIO::receiveMessage(int maxDuration, byte *message) {
-    byte buffer[3] = {0};
+void RADIO::receiveMessage(int maxDuration, byte *message, byte type, byte id) {
+    byte buffer[2] = {0};
     unsigned long startTime = millis();   // the time the delay started using current time
 
     while ((millis() - startTime) < maxDuration) {
-        if (ELECHOUSE_cc1101.CheckRxFifo(rx_time)) {
-            //Serial.println("hello");
-            //CRC Check. If "setCrc(false)" crc returns always OK
-
-            if (ELECHOUSE_cc1101.CheckCRC()) {
-
-                //Rssi Level in dBm
-                //Serial.print("Rssi: ");
-                //Serial.println(ELECHOUSE_cc1101.getRssi());
-
-                //Link Quality Indicator
-                //Serial.print("LQI: ");
-                //Serial.println(ELECHOUSE_cc1101.getLqi());
-
-                //Get received Data and calculate length
-                int len = ELECHOUSE_cc1101.ReceiveData(buffer);
-                buffer[len] = '\0';
+        if (type == CPE && ELECHOUSE_cc1101.CheckRxFifo(rx_time) && ELECHOUSE_cc1101.CheckCRC()) {
+            ELECHOUSE_cc1101.ReceiveData(buffer);
+            decode(buffer, message);
+            if (message[3] == id && (message[0] == bsRespond || message[0] == bsRequest)) {
                 break;
             }
         }
+        else if (ELECHOUSE_cc1101.CheckRxFifo(rx_time) && ELECHOUSE_cc1101.CheckCRC()) {
+            //Serial.println("hello");
+            //CRC Check. If "setCrc(false)" crc returns always OK
+
+
+            //Rssi Level in dBm
+            //Serial.print("Rssi: ");
+            //Serial.println(ELECHOUSE_cc1101.getRssi());
+
+            //Link Quality Indicator
+            //Serial.print("LQI: ");
+            //Serial.println(ELECHOUSE_cc1101.getLqi());
+
+            //Get received Data and calculate length
+            // int len = ELECHOUSE_cc1101.ReceiveData(buffer);
+            // buffer[len] = '\0';
+            ELECHOUSE_cc1101.ReceiveData(buffer);
+            decode(buffer, message);
+            break;
+        }
     }
-    decode(buffer, message);
 }
 
 void RADIO::sendMessage(int duration, byte *message) {
@@ -114,4 +120,8 @@ void RADIO::encode(byte *message, byte *buffer) {
     buffer[0] = buffer[0] + message[1];
     buffer[1] = message[2] << 4;
     buffer[1] = buffer[1] + message[3];
+}
+
+void RADIO::switchChannel(byte ch) {
+    ELECHOUSE_cc1101.setChannel(ch*2);
 }
