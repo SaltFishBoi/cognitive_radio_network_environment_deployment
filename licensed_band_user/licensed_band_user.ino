@@ -11,26 +11,55 @@
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
 #include <RADIO.h>
 
-//FOR TRANSMIT
-//byte transmitt_byte[11] = {72,101,108,108,111,32,87,111,114,108,100};
-//char* transmitt_char = "Hello World";
-int tx_time = 3;                // tx time in milli seconds
-byte buffer[2] = {0};           // buffer to be transmit
+#define userID 1
+
+// STATE
+// int state = 0;                  // 0 = REQUEST
+
+// -----------------------------------------------------
+// |   opCode   |  payload   |     src    |     des    |
+// -----------------------------------------------------
+// | message[0] | message[1] | message[2] | message[3] |
+// -----------------------------------------------------
+byte outMessage[4] = { 0 };           // message to be transmit 
+byte inMessage[4] = { 0 };           // receive message
+
+// scheduler with 24 slot
+// don't send anything from 0:00:00 to 1:00:00, send stuff at ch 1from 1:00:00 to 3:00:00
+byte scheduleList[24] = { 0, 0x01, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+// client 1 and bs knows the session time, client 2 doesn't know.
+
+void synBaseStation() {
+    Radio.switchChannel(2);
+    while (inMessage[0] != 1 || inMessage[2] != userID) {
+        outMessage[0] = lbuStart;
+        outMessage[1] = 0;
+        outMessage[2] = userID;
+        outMessage[3] = userID;
+        Radio.sendMessage(lbuSendDuration, outMessage);
+    }
+
+    while (true) { // waiting for broad cast
+        if (inMessage[0] == bsStart) {
+            break;
+        }
+    }
+}
 
 void lbu_process() {
+    startTime = milli();
+    int time = 0;
+
     while (true) {
-        if (state == 0) {
-            //message = Radio.receiveMessage(50);
-        }
-        else if (state == 1) {
-
-        }
-        else if (state == 2) {
-
-        }
-        else {
-
-        }
+        time = (milli() - startTime) / 60000;
+        Radio.switchChannel(scheduleList[time]);
+        outMessage[0] = lbuInterrupt;
+        outMessage[1] = 0;
+        outMessage[2] = userID;
+        outMessage[3] = userID;
+        Radio.sendMessage(lbuSendDuration, outMessage);
     }
 }
 

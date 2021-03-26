@@ -14,6 +14,7 @@
 // base station capacity
 #define maxChannel 12       // channel 1-11 for assignment, channel 0 for setup communication
 #define numClient 6         // number of clients are actaully 5 in this case, maxClient is actually 0x0F
+#define numLicense 3
 
 // channel status
 #define FREE 0
@@ -46,7 +47,8 @@ byte channelList[maxChannel] = { FREE };
 // record client channel status
 // example: {    0    ,    1    ,    1    ,    3     ,...}
 //          | client0 | client1 | client2 | client3   ...
-byte clientList[numClient] = { WFC }
+byte clientList[numClient] = { WFC };
+byte licensedList[numLicensed] = { 0 };
 
 // -----------------------------------------------------
 // |   opCode   |  payload   |     src    |     des    |
@@ -88,6 +90,11 @@ void connectClients() {
         // setup single connection
         Radio.receiveMessage(bsReceiveMaxDuration, inMessage, BS, 0);  // (... 0) dummy parameter
         if (inMessage[0] == cpeStart) {
+            outMessage[0] = bsAckowledge;
+            outMessage[1] = 0;
+            outMessage[2] = inMessage[2];
+            outMessage[3] = inMessage[2];
+            Radio.sendMessage(bsSendDuration, outMessage);
             releaseUpdate(inMessage[2], inMessage[2], 0, 0) // (... 0, 0) dummy parameters
         }
 
@@ -102,6 +109,41 @@ void connectClients() {
     }
     Serial.println("Connect all clients");
 }
+
+void synLicensedUsers() {
+    bool synFlag = false;
+    Radio.switchChannel(2);         // ch 2 stand by channel before they start
+
+    while (!synFlag) {
+        // setup single connection
+        Radio.receiveMessage(bsReceiveMaxDuration, inMessage, BS, 0);  // (... 0) dummy parameter
+        if (inMessage[0] == lbuStart) {
+            outMessage[0] = bsAckowledge;
+            outMessage[1] = 0;
+            outMessage[2] = inMessage[2];
+            outMessage[3] = inMessage[2];
+            Radio.sendMessage(bsSendDuration, outMessage);
+            licenseList[inMessage[2]] = 1;
+        }
+
+        // check if all connection success
+        synFlag = true;
+        for (byte i = 1; i < numLicense; i++) {
+            if (licenseList[i] == 0) {
+                synFlag = false;
+                break;
+            }
+        }
+    }
+    Serial.println("Syn with all licensed users");
+    outMessage[0] = bsStart;
+    outMessage[1] = 0;
+    outMessage[2] = 0;
+    outMessage[3] = 0;
+    Radio.sendMessage(bsSendDuration, outMessage);   // broad cast to start all time
+    Radio.switchChannel(0);
+}
+
 
 void senseSpectrum() {
     byte clients = 0;
@@ -157,8 +199,9 @@ int sort_desc(const void* cmp1, const void* cmp2)
 }
 
 // channel selection algorithm 
-byte selectChannel(byte option) {
+byte selectChannel(byte option, int ref) {
     byte ch = 1;
+    int time;
     if (option == 0) { // pick start from ch 1 to max channel
         while (true) {
             if (getChannelOccupation(ch) == 0) {
@@ -176,6 +219,7 @@ byte selectChannel(byte option) {
         }
     }
     else if (option == 2) { // pick base on weight
+        time = (milli() - ref) / 60000;          // convert milli-second to min
         int sortList[maxChannel] = { selectionTable[time][0],
                                     selectionTable[time][1],
                                     selectionTable[time][2],
@@ -207,6 +251,8 @@ byte selectChannel(byte option) {
 void bs_process() {
     bool doneFlag = false;
     Radio.switchChannel(0);
+    startTime = milli();
+
 
     while (!doneFlag) {
         // every communication done
@@ -226,7 +272,7 @@ void bs_process() {
             else if (inMessage[0] == cpeRequest) {
                 //receive request, forward request
                 outMessage[0] = bsRespond;
-                outMessage[1] = 0;
+                outMessage[1] = selectChannel(0, startTime);                  // choose a channel for them
                 outMessage[2] = inMessage[2];
                 outMessage[3] = inMessage[3];
                 Radio.sendMessage(bsSendDuration, outMessage);
@@ -244,7 +290,7 @@ void bs_process() {
             else if (inMessage[0] == cpeRespond) {
                 //receive response, forward response back
                 outMessage[0] = bsRespond;
-                outMessage[1] = 0; // assign channel
+                outMessage[1] = inMessage[1]; // assign channel
                 outMessage[2] = inMessage[2];
                 outMessage[3] = inMessage[3];
                 Radio.sendMessage(bsSendDuration, outMessage);

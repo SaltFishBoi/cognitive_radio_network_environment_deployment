@@ -16,9 +16,12 @@
 #define cpeAckowledge 4
 #define bsRequest 5
 #define bsRespond 6
-#define cpeStart 7
+#define cpeStart 7s
 #define cpeDone 9
 #define cpeClose 10
+#define lbuStart 11
+#define bsStart 12
+#define bsAckowledge 13
 #define lbuInterrupt 8
 
 
@@ -26,11 +29,13 @@
 #define tx_time 3                // tx time in milli seconds
 #define bsSendDuration 50
 #define cpeSendDuration 50
+#define lbuSendDuration 50
 
 // FOR RECEIVE
 #define rx_time 5                // rx time in milli seconds
 #define bsReceiveMaxDuration 50
 #define cpeReceiveMaxDuration 500
+#define lbuReceiveMaxDuration 500
 #define cpeSenseDuration 50
 #define CPE 1
 #define BS 0

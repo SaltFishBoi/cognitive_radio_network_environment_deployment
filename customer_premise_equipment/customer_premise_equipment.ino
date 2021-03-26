@@ -12,6 +12,7 @@
 #include <RADIO.h>
 
 #define userID 1
+#define receiveExpired 3
 
 // STATE
 int state = 0;                  // 0 = REQUEST
@@ -28,12 +29,29 @@ byte outMessage[4] = { 0 };           // message to be transmit
 byte inMessage[4] = { 0 };           // receive message
 
 // to do list to be done
+// talk to clientID 3 for 2 hrs (2 min)
 byte actionList[5] = {0x32, 0x32, 0x32, 0x32, 0x32};
 
+// client 1 and bs knows the session time, client 2 doesn't know.
+
+void connectBaseStation() {
+    Radio.switchChannel(1);
+    while (inMessage[0] != 1 || inMessage[2] != userID) {
+        outMessage[0] = cpeStart;
+        outMessage[1] = 0;
+        outMessage[2] = userID;
+        outMessage[3] = userID;
+        Radio.sendMessage(lbuSendDuration, outMessage);
+    }
+}
+
 void cpe_process() {
-    bool doneFlag = false;
+    bool doneFlag = false;   // done with all actions
+    bool finishFlag; // finish an action, one session
     byte a = 0;
     byte ch = 0;
+    int start_time;
+    byte e = 0;
     Radio.switchChannel(0);
 
     while (!doneFlag) {
@@ -64,21 +82,23 @@ void cpe_process() {
             }
         }
         else if (state == 1) { // send stuff at assgiend channel
+            finishFlag = true;
+            start_time = millis();  // start reference time
             outMessage[0] = cpeSend;
             outMessage[1] = 0;
             outMessage[2] = 0;
             outMessage[3] = 0;
-            while (TIME) {
+            while ((millis() - start_time) >= (actionList[a] & 0x0F)*60*1000) { // compare them in milli-second
                 Radio.sendMessage(cpeSendDuration, outMessage);
                 Radio.receiveMessage(cpeReceiveMaxDuration, inMessage);
                 if (inMessage[0] == lbuInterrupt) {
-                    // store time
+                    actionsList[a] = actionsList[a] - ((millis() - start_time) / 60000); // convert milli-second into minutes, subtract the finished time
                     state == 0;
+                    finishFlag = false;
                     break;
                 }
-                // TIME++
             }
-            if (TIME) { // wrap up
+            if (finishFlag) {           // if finished, no interrupt during the sending, wrap up
                 outMessage[0] = cpeDone;
                 outMessage[1] = 0;
                 outMessage[2] = 0;
@@ -92,7 +112,7 @@ void cpe_process() {
                         outMessage[2] = 0;
                         outMessage[3] = 0;
                         Radio.sendMessage(cpeSendDuration, outMessage);
-                        Radio.switchChannel(0);
+                        Radio.switchChannel(0);                             // switch back to default ch to setup session
                         actionList[a] = 0;
                         a++;
                         state == 0;
@@ -109,14 +129,17 @@ void cpe_process() {
                     break;
                 }
                 else if (inMessage[0] == cpeDone) {
-                    while (inMessage[0] != cpeClose || TIME) {
+                    e = 0;
+                    while (inMessage[0] != cpeClose && e != receiveExpired) {  // it will stop sending ack when either receive a cpeClose or timer expired
                         outMessage[0] = cpeAckowledge;
                         outMessage[1] = 0;
                         outMessage[2] = 0;
                         outMessage[3] = 0;
                         Radio.sendMessage(cpeSendDuration, outMessage);
                         Radio.receiveMessage(cpeReceiveMaxDuration, inMessage);
+                        e++;
                     }
+                    Radio.switchChannel(0);             // switch back to default ch to setup session
                     state == 0;
                     break;
                 }
