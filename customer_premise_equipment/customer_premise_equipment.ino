@@ -10,15 +10,15 @@
 //by Little_S@tan
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
 #include <RADIO.h>
+#include <TEST.h>
 
 #define userID 1
-#define receiveExpired 3
 
 // STATE
 int state = 0;                  // 0 = REQUEST
 
-// WAIT TIME, PRIME NUMBER x10
-byte waitTime[16] = {20,30,50,70,110,130,170,190,230,290,310,370,410,430,470,530};
+// DATA
+int interruptNum = 0;
 
 // -----------------------------------------------------
 // |   opCode   |  payload   |     src    |     des    |
@@ -30,7 +30,7 @@ byte inMessage[4] = { 0 };           // receive message
 
 // to do list to be done
 // talk to clientID 3 for 2 hrs (2 min)
-byte actionList[5] = {0x32, 0x32, 0x32, 0x32, 0x32};
+byte actionList[actionSize] = {0};
 
 // client 1 and bs knows the session time, client 2 doesn't know.
 

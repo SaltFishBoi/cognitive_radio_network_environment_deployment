@@ -10,6 +10,7 @@
 //by Little_S@tan
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
 #include <RADIO.h>
+#include <TEST.h>
 
 #define userID 1
 
@@ -26,8 +27,7 @@ byte inMessage[4] = { 0 };           // receive message
 
 // scheduler with 24 slot
 // don't send anything from 0:00:00 to 1:00:00, send stuff at ch 1from 1:00:00 to 3:00:00
-byte scheduleList[24] = { 0, 0x01, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-                          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+byte scheduleList[scheduleSize] = {0};
 
 // client 1 and bs knows the session time, client 2 doesn't know.
 
@@ -49,11 +49,11 @@ void synBaseStation() {
 }
 
 void lbu_process() {
-    startTime = milli();
+    startTime = millis();
     int time = 0;
 
     while (true) {
-        time = (milli() - startTime) / 60000;
+        time = (millis() - startTime) / 60000;
         Radio.switchChannel(scheduleList[time]);
         outMessage[0] = lbuInterrupt;
         outMessage[1] = 0;

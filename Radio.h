@@ -32,6 +32,7 @@
 #define lbuSendDuration 50
 
 // FOR RECEIVE
+#define receiveExpired 3
 #define rx_time 5                // rx time in milli seconds
 #define bsReceiveMaxDuration 50
 #define cpeReceiveMaxDuration 500
@@ -39,6 +40,9 @@
 #define cpeSenseDuration 50
 #define CPE 1
 #define BS 0
+
+// WAIT TIME, PRIME NUMBER x10
+#define waitTime { 20,30,50,70,110,130,170,190,230,290,310,370,410,430,470,530 }
 
 class RADIO
 {

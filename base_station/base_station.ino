@@ -10,6 +10,7 @@
 //by Little_S@tan
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
 #include <RADIO.h>
+#include <TEST.h>
 
 // base station capacity
 #define maxChannel 12       // channel 1-11 for assignment, channel 0 for setup communication
@@ -219,7 +220,7 @@ byte selectChannel(byte option, int ref) {
         }
     }
     else if (option == 2) { // pick base on weight
-        time = (milli() - ref) / 60000;          // convert milli-second to min
+        time = (millis() - ref) / 60000;          // convert milli-second to min
         int sortList[maxChannel] = { selectionTable[time][0],
                                     selectionTable[time][1],
                                     selectionTable[time][2],
@@ -251,7 +252,7 @@ byte selectChannel(byte option, int ref) {
 void bs_process() {
     bool doneFlag = false;
     Radio.switchChannel(0);
-    startTime = milli();
+    startTime = millis();
 
 
     while (!doneFlag) {
