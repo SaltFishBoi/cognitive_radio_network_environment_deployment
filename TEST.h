@@ -37,7 +37,7 @@ public:
     //RADIO(int pin);
     void initialize_actionList(byte id, byte *action);
     void initialize_scheduleList(byte id, byte *schedule);
-    //void record();
+    void record(int location, byte time, byte data);
     void report(void);
 
 };

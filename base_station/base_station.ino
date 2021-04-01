@@ -265,6 +265,9 @@ void bs_process() {
             }
         }
 
+        // sense the spectrum every loop
+        senseSpectrum();
+
         if (state == 0) { // try to receive request
             Radio.receiveMessage(bsReceiveMaxDuration, inMessage, BS, 0);
             if (inMessage[0] == 0) {
@@ -317,17 +320,16 @@ void setup()
 }
 
 void loop() {
-    Serial.println("Let's go");
-    //outMessage[0] = bsRespond;
-    //outMessage[1] = 0;
-    //outMessage[2] = 3;
-    //outMessage[3] = 4;
-    //Radio.sendMessage(sendDuration, outMessage);
-    Radio.receiveMessage(bsReceiveMaxDuration, inMessage, 0, 0);
-    Serial.println(inMessage[0]);
-    Serial.println(inMessage[1]);
-    Serial.println(inMessage[2]);
-    Serial.println(inMessage[3]);
 
-    Serial.println();
+
+    if (operation == 0) {
+        initialize_table();
+        connectClients();
+        synLicensedUsers();
+        bs_process();
+        operation = 2;
+    }
+    else {
+
+    }
 }

@@ -43,4 +43,9 @@ void TEST::report(void) {
 	delay(500);
 }
 
+void TEST::record(int location, byte time, byte data) {
+	EEPROM.write(location, time);
+	EEPROM.write(location, data);
+}
+
 

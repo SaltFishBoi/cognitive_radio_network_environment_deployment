@@ -16,6 +16,7 @@
 
 // STATE
 // int state = 0;                  // 0 = REQUEST
+int operation = 0               // 0 = experiment
 
 // -----------------------------------------------------
 // |   opCode   |  payload   |     src    |     des    |
@@ -69,13 +70,17 @@ void setup()
 
     //  initialize tx rx
     Radio.initialize_trans();
-
-    delayStart = millis();
-    delayRunning = true;
 }
 
 void loop(){
+    if (operation == 0) {
+        synBaseStation();
+        lbu_process();
+        operation = 2;
+    }
+    else {
 
+    }
 }
 
 
