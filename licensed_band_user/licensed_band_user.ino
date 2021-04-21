@@ -40,6 +40,7 @@ void synBaseStation() {
         outMessage[2] = userID;
         outMessage[3] = userID;
         Radio.sendMessage(lbuSendDuration, outMessage);
+        Radio.receiveMessage(lbuReceiveMaxDuration, inMessage, LBU, userID);
     }
 
     while (true) { // waiting for broad cast
@@ -78,8 +79,11 @@ void loop(){
         lbu_process();
         operation = 2;
     }
+    else if (operation == 1) {
+        // debug
+    }
     else {
-
+        continue;
     }
 }
 

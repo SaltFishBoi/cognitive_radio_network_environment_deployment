@@ -45,7 +45,8 @@ void connectBaseStation() {
         outMessage[1] = 0;
         outMessage[2] = userID;
         outMessage[3] = userID;
-        Radio.sendMessage(lbuSendDuration, outMessage);
+        Radio.sendMessage(cpeSendDuration, outMessage);
+        Radio.receiveMessage(cpeReceiveMaxDuration, inMessage, cpe, userID);
     }
 
     while (true) { // waiting for broad cast
@@ -106,13 +107,13 @@ void cpe_process() {
             }
         }
         else if (state == 1) { // send stuff at assgiend channel
-            outMessage[0] = cpeSend;
-            outMessage[1] = 0;
-            outMessage[2] = 0;
-            outMessage[3] = 0;
 
             Radio.receiveMessage(cpeReceiveMaxDuration, inMessage);
             if ((millis() - start_time) >= (actionList[a] & 0x0F) * 60 * 1000) { // compare them in milli-second
+                outMessage[0] = cpeSend;
+                outMessage[1] = 0;
+                outMessage[2] = 0;
+                outMessage[3] = 0;
                 Radio.sendMessage(cpeSendDuration, outMessage);
             }
             else {
@@ -165,14 +166,14 @@ void cpe_process() {
                 Radio.receiveMessage(cpeReceiveMaxDuration, inMessage);
                 e++;
             }
-            else if (e == receiveExpired) {
+            else if (inMessage[0] == cpeClose || e == receiveExpired) {
                 Radio.switchChannel(0);             // switch back to default ch to setup session
                 state == 0;
                 break;
             }
         }
         else {
-            //
+            continue;
         }
     }
 }
@@ -190,14 +191,18 @@ void loop() {
     if (operation == 0) {
         connectBaseStation();
         cpe_process();
-        operation = 2;
+        operation = 3;
     }
     else if (operation == 1) {
+        // debug
+    }
+    else if (operation == 2) {
+        // print
         TEST.report();
-        operation = 2;
+        operation = 3;
     }
     else {
-
+        continue;
     }
 }
 

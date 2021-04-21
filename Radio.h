@@ -38,6 +38,7 @@
 #define cpeReceiveMaxDuration 500
 #define lbuReceiveMaxDuration 500
 #define cpeSenseDuration 50
+#define LBU 2
 #define CPE 1
 #define BS 0
 
