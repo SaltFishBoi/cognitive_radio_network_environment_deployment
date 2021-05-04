@@ -59,10 +59,24 @@ void RADIO::receiveMessage(int maxDuration, byte *message, byte type, byte id) {
     unsigned long startTime = millis();   // the time the delay started using current time
 
     while ((millis() - startTime) < maxDuration) {
-        if (type == CPE && ELECHOUSE_cc1101.CheckRxFifo(rx_time) && ELECHOUSE_cc1101.CheckCRC()) {
+        if (type == BS && ELECHOUSE_cc1101.CheckRxFifo(rx_time) && ELECHOUSE_cc1101.CheckCRC()) {
             ELECHOUSE_cc1101.ReceiveData(buffer);
             decode(buffer, message);
             if (message[3] == id && (message[0] == bsRespond || message[0] == bsRequest)) {
+                break;
+            }
+        }
+        else if (type == CPE && ELECHOUSE_cc1101.CheckRxFifo(rx_time) && ELECHOUSE_cc1101.CheckCRC()) {
+            ELECHOUSE_cc1101.ReceiveData(buffer);
+            decode(buffer, message);
+            if (message[2] == id && message[0] == cpeRespond) {
+                break;
+            }
+        }
+        else if (type == LBU && ELECHOUSE_cc1101.CheckRxFifo(rx_time) && ELECHOUSE_cc1101.CheckCRC()) {
+            ELECHOUSE_cc1101.ReceiveData(buffer);
+            decode(buffer, message);
+            if (message[0] == lbuInterrupt) {
                 break;
             }
         }

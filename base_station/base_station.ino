@@ -12,10 +12,8 @@
 #include <RADIO.h>
 #include <TEST.h>
 
-// base station capacity
-#define maxChannel 12       // channel 1-11 for assignment, channel 0 for setup communication
-#define numClient 6         // number of clients are actaully 5 in this case, maxClient is actually 0x0F
-#define numLicense 3
+#define LED1 3
+#define LED2 4
 
 // channel status
 #define FREE 0
@@ -27,13 +25,14 @@
 #define DONE 0xFF
 
 // TIME
-int startTime = 0;              // starting reference time
+unsigned long startTime = 0;              // starting reference time
 
 // STATE
 int state = 0;                  // 0 = IDEL
+int operation = 0;              // 0 = experiment, 1 = output report
 
 // SELECTION TABLE
-int selectionTable[24][maxChannel];
+int selectionTable[scheduleSize][maxChannel];
 
 // CHANNEL LIST
 // channel zero reserved
@@ -48,7 +47,7 @@ byte channelList[maxChannel] = { FREE };
 // record client channel status
 // example: {    0    ,    1    ,    1    ,    3     ,...}
 //          | client0 | client1 | client2 | client3   ...
-byte clientList[numClient] = { WFC };
+byte clientList[numClient] = { WFC, WFC, WFC, WFC};
 byte licensedList[numLicensed] = { 0 };
 
 // -----------------------------------------------------
@@ -68,39 +67,41 @@ byte getChannelOccupation(byte ch) {
 }
 
 void occupationUpdate(byte client1, byte client2, byte ch) {
-    channelList[ch] == (client1 << 4) + client2;
-    clientList[client1] == ch;
-    clientList[client2] == ch;
+    channelList[ch] = (client1 << 4) + client2;
+    clientList[client1] = ch;
+    clientList[client2] = ch;
 }
 
 // release when detect cpe user not in the channel for following reasons
 // 1. license band user interrupt
 // 2. session expired
 // 3. session not successfully setup
-void releaseUpdate(byte client1, byte client2, byte ch, byte status) {
-    channelList[ch] == status;
-    clientList[client1] == RFS;
-    clientList[client2] == RFS;
+void releaseUpdate(byte client1, byte client2, byte ch, byte st) {
+    channelList[ch] = st;
+    clientList[client1] = RFS;
+    clientList[client2] = RFS;
 }
 
 void connectClients() {
     bool connectionFlag = false;
-    Radio.switchChannel(1);         // ch 1 stand by channel before they start
+    Radio.switchChannel(1);         // ch 2 stand by channel before they start
 
     while (!connectionFlag) {
         // setup single connection
-        Radio.receiveMessage(bsReceiveMaxDuration, inMessage, BS, 0);  // (... 0) dummy parameter
+        Radio.receiveMessage(shortReceiveMaxDuration, inMessage, BS, 0);  // (... 0) dummy parameter
         if (inMessage[0] == cpeStart) {
-            outMessage[0] = bsAckowledge;
+            inMessage[0] = 0; // clear msg
+            outMessage[0] = bsAcknowledge;
             outMessage[1] = 0;
             outMessage[2] = inMessage[2];
             outMessage[3] = inMessage[2];
-            Radio.sendMessage(bsSendDuration, outMessage);
-            releaseUpdate(inMessage[2], inMessage[2], 0, 0) // (... 0, 0) dummy parameters
+            Radio.sendMessage(shortSendDuration, outMessage);
+            releaseUpdate(inMessage[2], inMessage[2], 0, 0); // (... 0, 0) dummy parameters
+            Serial.println("Connect a client");
         }
 
         // check if all connection success
-        conenctionFlag = true;
+        connectionFlag = true;
         for (byte i = 1; i < numClient; i++) {
             if (clientList[i] == WFC) {
                 connectionFlag = false;
@@ -117,31 +118,33 @@ void synLicensedUsers() {
 
     while (!synFlag) {
         // setup single connection
-        Radio.receiveMessage(bsReceiveMaxDuration, inMessage, BS, 0);  // (... 0) dummy parameter
+        Radio.receiveMessage(shortReceiveMaxDuration, inMessage, BS, 0);  // (... 0) dummy parameter
         if (inMessage[0] == lbuStart) {
-            outMessage[0] = bsAckowledge;
+            inMessage[0] = 0; // clear msg
+            outMessage[0] = bsAcknowledge;
             outMessage[1] = 0;
             outMessage[2] = inMessage[2];
             outMessage[3] = inMessage[2];
-            Radio.sendMessage(bsSendDuration, outMessage);
-            licenseList[inMessage[2]] = 1;
+            Radio.sendMessage(shortSendDuration, outMessage);
+            licensedList[inMessage[2]] = 1;
         }
 
         // check if all connection success
         synFlag = true;
-        for (byte i = 1; i < numLicense; i++) {
-            if (licenseList[i] == 0) {
+        for (byte i = 0; i < numLicensed; i++) {
+            if (licensedList[i] == 0) {
                 synFlag = false;
                 break;
             }
         }
     }
     Serial.println("Syn with all licensed users");
+    delay(3000); // count down 3 seconds
     outMessage[0] = bsStart;
     outMessage[1] = 0;
     outMessage[2] = 0;
     outMessage[3] = 0;
-    Radio.sendMessage(bsSendDuration, outMessage);   // broad cast to start all time
+    Radio.sendMessage(shortSendDuration, outMessage);   // broad cast to start all time
     Radio.switchChannel(0);
 }
 
@@ -152,39 +155,40 @@ void senseSpectrum() {
     byte client2 = 0;
     for (byte ch = 1; ch < maxChannel; ch++) {
         Radio.switchChannel(ch);
-        Radio.receiveMessage(bsReceiveMaxDuration, inMessage, BS, 0);
+        inMessage[0] = 0;
+        Radio.receiveMessage(shortReceiveMaxDuration, inMessage, ANY, 0);
         if (inMessage[0] = FREE) { // channel FREE
             clients = getChannelOccupation(ch);
             releaseUpdate((clients >> 4), (clients & 0x0F), ch, FREE);
         }
-        else if (inMessage[0] = OP) { // channel Occupied by Priority user
-            clients = getChannelOccupation(ch);
-            releaseUpdate((clients >> 4), (clients & 0x0F), ch, OP);
-        }
+        //else if (inMessage[0] = OP) { // channel Occupied by Priority user
+        //    clients = getChannelOccupation(ch);
+        //    releaseUpdate((clients >> 4), (clients & 0x0F), ch, OP);
+        //}
     }
     Radio.switchChannel(0);
     Serial.println("Sense all channels");
 }
 
 void initialize_table() {
-    for (byte 1 = 0; t < 24; t++) {
+    for (byte t = 0; t < scheduleSize; t++) {
         for (byte ch = 0; ch < maxChannel; ch++) {
             if (ch == 0) {
-                selectionTable[t][ch] = -1;
+                selectionTable[t][ch] = -1; // purposely make it the lowest
             }
             else {
                 selectionTable[t][ch] = 0;
             }
         }
     }
-    selectionTable[0][0] = -1;
-    selectionTable[1][0] = -1;
-    selectionTable[2][0] = -1;
-    selectionTable[3][0] = -1;
-    selectionTable[4][0] = -1;
-    selectionTable[5][0] = -1;
-    selectionTable[6][0] = -1;
-    selectionTable[7][0] = -1;
+    //selectionTable[0][0] = -1;
+    //selectionTable[1][0] = -1;
+    //selectionTable[2][0] = -1;
+    //selectionTable[3][0] = -1;
+    //selectionTable[4][0] = -1;
+    //selectionTable[5][0] = -1;
+    //selectionTable[6][0] = -1;
+    //selectionTable[7][0] = -1;
 }
 
 //https://arduino.stackexchange.com/questions/38177/how-to-sort-elements-of-array-in-arduino-code
@@ -200,44 +204,43 @@ int sort_desc(const void* cmp1, const void* cmp2)
 }
 
 // channel selection algorithm 
-byte selectChannel(byte option, int ref) {
+byte selectChannel(byte option, unsigned long ref) {
     byte ch = 1;
-    int time;
+    int t;
+    
     if (option == 0) { // pick start from ch 1 to max channel
-        while (true) {
+        while (ch <= maxChannel) {
             if (getChannelOccupation(ch) == 0) {
-                break
+                break;
             }
             ch++;
         }
     }
     else if (option == 1) { // randomly pick range from ch 1 to max channel
-        while (true) {
+        while (ch <= maxChannel) {
             ch = random(1, maxChannel);
             if (getChannelOccupation(ch) == 0) {
-                break
+                break;
             }
         }
     }
     else if (option == 2) { // pick base on weight
-        time = (millis() - ref) / 60000;          // convert milli-second to min
-        int sortList[maxChannel] = { selectionTable[time][0],
-                                    selectionTable[time][1],
-                                    selectionTable[time][2],
-                                    selectionTable[time][3],
-                                    selectionTable[time][4],
-                                    selectionTable[time][5],
-                                    selectionTable[time][6],
-                                    selectionTable[time][7],
-                                    selectionTable[time][8],
-                                    selectionTable[time][9],
-                                    selectionTable[time][10],
-                                    selectionTable[time][11] };
+        t = (((millis() - ref) / (secDiv*1000))+1)%scheduleSize;          // convert milli-second to time slot
+        int sortList[maxChannel-1] = {selectionTable[t][1],
+                                    selectionTable[t][2],
+                                    selectionTable[t][3],
+                                    selectionTable[t][4],
+                                    selectionTable[t][5],
+                                    selectionTable[t][6],
+                                    selectionTable[t][7],
+                                    selectionTable[t][8],
+                                    selectionTable[t][9],
+                                    selectionTable[t][10],
+                                    selectionTable[t][11] };
 
         qsort(sortList, maxChannel, sizeof(sortList[0]), sort_desc);
-        for (byte i = 1; i < maxChannel; i++) {
-            ch = sortList[i];
-            if (getChannelOccupation(ch) == 0) {
+        for (byte i = 0; i < maxChannel-1; i++) {
+            if (getChannelOccupation(i+1) == 0) {
                 break;
             }
         }
@@ -249,64 +252,58 @@ byte selectChannel(byte option, int ref) {
     return ch;
 }
 
+// 5/1/21 *update* remove done flag in base station
+// let it run forever
 void bs_process() {
-    bool doneFlag = false;
+    //bool doneFlag = false;
+    byte r;
+    byte ch;
     Radio.switchChannel(0);
     startTime = millis();
 
-
-    while (!doneFlag) {
-        // every communication done
-        doneFlag = true;
-        for (byte i = 1; i < numClient; i++) {
-            if (clientList[i] != DONE) {
-                doneFlag = false;
-                break;
-            }
-        }
+    while (true) {
+        // every communication done (maybe this is not needed) we can do while true here
+        //doneFlag = true;
+        //for (byte i = 1; i < numClient; i++) {
+        //    if (clientList[i] != DONE) {
+        //        doneFlag = false;
+        //        break;
+        //    }
+        //}
 
         // sense the spectrum every loop
-        senseSpectrum();
+        //senseSpectrum();
 
         if (state == 0) { // try to receive request
-            Radio.receiveMessage(bsReceiveMaxDuration, inMessage, BS, 0);
-            if (inMessage[0] == 0) {
-                //no message received
-            }
-            else if (inMessage[0] == cpeRequest) {
+            inMessage[0] = 0; // clear msg
+            Radio.receiveMessage(shortReceiveMaxDuration, inMessage, ANY, 0);
+            ch = selectChannel(0, startTime);             // choose a channel for them
+            if (inMessage[0] == cpeRequest) {
                 //receive request, forward request
-                outMessage[0] = bsRespond;
-                outMessage[1] = selectChannel(0, startTime);                  // choose a channel for them
+                outMessage[0] = bsRequest;
+                outMessage[1] = ch;           
                 outMessage[2] = inMessage[2];
                 outMessage[3] = inMessage[3];
-                Radio.sendMessage(bsSendDuration, outMessage);
+                Radio.sendMessage(shortSendDuration, outMessage);
+                Serial.println("send Request");
                 state = 1;
-            }
-            else {
-                //
             }
         }
         else if (state == 1) { // try to receive response
-            Radio.receiveMessage(bsReceiveMaxDuration, inMessage, BS, 0);
-            if (inMessage[0] == 0) {
-                //no message received
-            }
-            else if (inMessage[0] == cpeRespond) {
+            inMessage[0] = 0; // clear msg
+            Radio.receiveMessage(longReceiveMaxDuration, inMessage, BS, outMessage[3]);
+            if (inMessage[0] == cpeRespond) {
                 //receive response, forward response back
                 outMessage[0] = bsRespond;
                 outMessage[1] = inMessage[1]; // assign channel
                 outMessage[2] = inMessage[2];
                 outMessage[3] = inMessage[3];
-                Radio.sendMessage(bsSendDuration, outMessage);
+                Radio.sendMessage(longSendDuration, outMessage);
                 occupationUpdate(inMessage[2], inMessage[3], inMessage[1]);
-            }
-            else {
-                //
+                Serial.println("send Respond");
+                digitalWrite(LED1, HIGH); // blue lighton indicate send a respond (connection)
             }
             state = 0;
-        }
-        else {
-
         }
     }
 }
@@ -314,22 +311,25 @@ void bs_process() {
 void setup()
 {
     Serial.begin(9600);
-
+    pinMode(LED1,OUTPUT); // initialize leds
+    pinMode(LED2,OUTPUT);
+    digitalWrite(LED1, LOW);
+    digitalWrite(LED2, LOW);
     //  initialize tx rx
     Radio.initialize_trans();
 }
 
 void loop() {
-
-
     if (operation == 0) {
+        //digitalWrite(LED1, HIGH); // blue lighton indicate on operation 0
         initialize_table();
-        connectClients();
-        synLicensedUsers();
-        bs_process();
+        //connectClients();
+        //synLicensedUsers();
+        //digitalWrite(LED1, LOW); // blue lightout indicate finish all connection and yell out start
+        //bs_process();
         operation = 2;
     }
     else {
-
+        ;
     }
 }

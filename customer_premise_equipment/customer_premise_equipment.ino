@@ -1,4 +1,4 @@
-﻿//File Name: Customer Premise Equipment
+//File Name: Customer Premise Equipment
 //Project Name: Cogntiive Radio Network Enviroment Deployment
 //Engineer: Kevin Yu
 //Date: 3-22-2021
@@ -12,14 +12,17 @@
 #include <RADIO.h>
 #include <TEST.h>
 
-#define userID 1
+#define LED1 3
+#define LED2 4
+
+#define userID 3
 
 // STATE
 int state = 0;                  // 0 = REQUEST
-int operation = 0               // 0 = experiment, 1 = output report
+int operation = 0;               // 0 = experiment, 1 = output report
 
 // TIME
-int startTime = 0;              // starting reference time
+unsigned long startTime = 0;              // starting reference time
 
 // DATA
 int interruptNum = 0;
@@ -33,147 +36,196 @@ byte outMessage[4] = { 0 };           // message to be transmit
 byte inMessage[4] = { 0 };           // receive message
 
 // to do list to be done
-// talk to clientID 3 for 2 hrs (2 min)
-byte actionList[actionSize] = {0};
+// talk to clientID 3 for 2 hrs 
+// byte actionList[actionSize] = {0};
+
+// 5/1/21 *update* default communication time (session time) 1 time division (2hr)
+// talk to other client round robin
+byte requestTarget = userID+1; // request the next target
 
 // client 1 and bs knows the session time, client 2 doesn't know.
 
 void connectBaseStation() {
     Radio.switchChannel(1);
-    while (inMessage[0] != 1 || inMessage[2] != userID) {
-        outMessage[0] = cpeStart;
-        outMessage[1] = 0;
-        outMessage[2] = userID;
-        outMessage[3] = userID;
-        Radio.sendMessage(cpeSendDuration, outMessage);
-        Radio.receiveMessage(cpeReceiveMaxDuration, inMessage, cpe, userID);
+    outMessage[0] = cpeStart;
+    outMessage[1] = 0;
+    outMessage[2] = userID;
+    outMessage[3] = userID;
+    Radio.sendMessage(shortSendDuration, outMessage);
+    while (true) {
+        Radio.receiveMessage(longReceiveMaxDuration, inMessage, ANY, userID); // non CPE type listen
+        if (inMessage[0] == bsAcknowledge && inMessage[2] == userID){
+             inMessage[0] = 0; // clear message
+             break;
+        }
     }
+    Serial.println("Connect Base station");
+    digitalWrite(LED1, LOW); // LED1 blink indicate ready
+    delay(500);
+    digitalWrite(LED1, HIGH);
 
+    Radio.switchChannel(2);
+    
     while (true) { // waiting for broad cast
+        Radio.receiveMessage(longReceiveMaxDuration, inMessage, ANY, userID); // non CPE type listen
         if (inMessage[0] == bsStart) {
             break;
         }
     }
+    Serial.println("Connect heard");
 }
 
 void cpe_process() {
     bool doneFlag = false;   // done with all actions
     bool sendFinishFlag; // finish an action, one session
     startTime = millis();
-    byte a = 0;
     byte ch = 0;
-    int start_time;
+    unsigned long ref_time;
     int mem_location = 0;
     byte e = 0;
-    byte t = 0; // program run time in min
+    byte w = 0; // waitTime index
+    byte t = 0; // program run time in time div
     byte interrupt = 0;
     Radio.switchChannel(0);
- 
+    outMessage[0] = cpeRequest;
+    outMessage[1] = 0;
+    outMessage[2] = userID;
 
+    while (requestTarget%numClient == 0 || requestTarget%numClient == userID){
+        requestTarget++;
+    }
+    outMessage[3] = requestTarget%numClient; // translate to client ID
+    
     while (!doneFlag) {
         // every communication done
-        if (actionList[5] != 0) {
+        if ((millis() - startTime) / (1000*secDiv*scheduleSize) == endInDay) {
             doneFlag = true;
+            //Serial.println("finish All");
         }
-
-        if ((millis() - startTime) / 1000 / 60 == t) {// record
-            TEST.record(mem_location, t, interrupt);
+        if ((millis() - startTime) / (1000*secDiv) == t) {// record
+            //Test.record(mem_location, t, interrupt);
             interrupt = 0;
             mem_location+=2;
             t++;
+            //Serial.println("finish hour");
+            //Serial.println(t);
         }
 
         if (state == 0) { // try to request
-            outMessage[0] = cpeRequest;
-            outMessage[1] = 0;
-            outMessage[2] = userID;
-            outMessage[3] = actionList[a] << 4;
-            Radio.sendMessage(cpeSendDuration, outMessage);
-            Radio.receiveMessage(cpeReceiveMaxDuration, inMessage, CPE, userID);
-            if (inMessage[0] == bsRespond) {    // receive a bs respond
+            
+            Radio.sendMessage(shortSendDuration, outMessage);
+            inMessage[0] = 0; // clear msg
+            Radio.receiveMessage(waitTime[w%5], inMessage, BS, userID);
+            Serial.println("hi");
+            Serial.println(inMessage[0]);
+            Serial.println(inMessage[1]);
+            Serial.println(inMessage[2]);
+            Serial.println(inMessage[3]);
+            
+            if (inMessage[0] == bsRespond && inMessage[3] == userID && inMessage[2] == outMessage[3]) {    // receive a bs respond
                 Radio.switchChannel(inMessage[1]);
                 state = 1; // start sending in assigned channel
                 sendFinishFlag = false;
-                start_time = millis();  // start reference time
+                ref_time = millis();  // start reference time
+                Serial.println("got response");
+                digitalWrite(LED1, HIGH); // blue lighton your request is processed
             }
-            else {                              // receive a bs request
+            else if (inMessage[0] == bsRequest && inMessage[3] == userID){          // receive a bs request
                 outMessage[0] = cpeRespond;
                 outMessage[1] = inMessage[1];
                 outMessage[2] = userID;
                 outMessage[3] = inMessage[2];
-                Radio.sendMessage(cpeSendDuration, outMessage);
+                Radio.sendMessage(longSendDuration, outMessage);
                 Radio.switchChannel(inMessage[1]);
                 state = 2;
+                e = 0;
+                Serial.println("new mission");
+                digitalWrite(LED2, HIGH); // yellow lighton indicate other requested me
             }
+            w++;
         }
         else if (state == 1) { // send stuff at assgiend channel
-
-            Radio.receiveMessage(cpeReceiveMaxDuration, inMessage);
-            if ((millis() - start_time) >= (actionList[a] & 0x0F) * 60 * 1000) { // compare them in milli-second
+            //Serial.println("looping send");
+            inMessage[0] = 0; // clear msg
+            Radio.receiveMessage(longReceiveMaxDuration, inMessage, LBU, 0); // any LBU no need ID
+            if (inMessage[0] == lbuInterrupt) {
+                Serial.println("interrupted");
+                interrupt++;
+                state == 0;       // resume previous request
+                Radio.switchChannel(0);
+                outMessage[0] = cpeRequest;
+                outMessage[1] = 0;
+                outMessage[2] = userID;
+                outMessage[3] = requestTarget%numClient; // translate to client ID
+                digitalWrite(LED1, LOW); // LED1 off indicate state 0
+            }
+            
+            if ((millis() - ref_time) <= commTime * secDiv * 1000) { // compare them in milli-second
                 outMessage[0] = cpeSend;
                 outMessage[1] = 0;
-                outMessage[2] = 0;
-                outMessage[3] = 0;
-                Radio.sendMessage(cpeSendDuration, outMessage);
+                outMessage[2] = userID;
+                outMessage[3] = requestTarget%numClient;
+                Radio.sendMessage(shortSendDuration, outMessage);
+                Serial.println("sending");
             }
-            else {
-                sendFinishFlag = true;
-            }
-
-            if (inMessage[0] == lbuInterrupt) {
-                actionsList[a] = actionsList[a] - ((millis() - start_time) / 60000); // convert milli-second into minutes, subtract the finished time
-                interrupt++;
-                state == 0;
-            }
-
-            if (sendFinishFlag) {           // if finished, no interrupt during the sending, wrap up
+            else if ((millis() - ref_time) > commTime * secDiv * 1000){
                 outMessage[0] = cpeDone;
                 outMessage[1] = 0;
-                outMessage[2] = 0;
-                outMessage[3] = 0;
+                outMessage[2] = userID;
+                outMessage[3] = requestTarget%numClient;
 
-                Radio.sendMessage(cpeSendDuration, outMessage);
-                Radio.receiveMessage(cpeReceiveMaxDuration, inMessage);
-                if (inMessage[0] == cpeAckowledge) {
-                    outMessage[0] = cpeClose;
-                    outMessage[1] = 0;
-                    outMessage[2] = 0;
-                    outMessage[3] = 0;
-                    Radio.sendMessage(cpeSendDuration, outMessage);
-                    Radio.switchChannel(0);                             // switch back to default ch to setup session 
-                    actionList[a] = 0;  
-                    a++;
-                    state == 0;
-                    break;
+                Radio.sendMessage(longSendDuration, outMessage);
+                Serial.println("send done");
+                
+                requestTarget++; // new target
+                state = 0;
+                Radio.switchChannel(0);
+                outMessage[0] = cpeRequest;
+                outMessage[1] = 0;
+                outMessage[2] = userID;
+
+                while (requestTarget%numClient == 0 || requestTarget%numClient == userID){
+                    requestTarget++;
                 }
+                outMessage[3] = requestTarget%numClient; // translate to client ID
+                digitalWrite(LED1, LOW); // LED1 off indicate state 0
             }
         }
         else if (state == 2) { // listening at assgined channel
-            Radio.receiveMessage(cpeReceiveMaxDuration, inMessage);
-            if (inMessage[0] == lbuInterrupt && inMessage[0] == 0) {
-                state == 0;
-                break;
-            }
-            else if (inMessage[0] == cpeDone) {
-                e = 0;
-            }
-            else if (inMessage[0] != cpeClose && e != receiveExpired) {
-                outMessage[0] = cpeAckowledge;
+            Serial.println("listening");
+            inMessage[0] = 0; // clear msg
+            Radio.receiveMessage(longReceiveMaxDuration, inMessage, ANY, userID);
+            Serial.println("hi");
+            Serial.println(inMessage[0]);
+            Serial.println(inMessage[1]);
+            Serial.println(inMessage[2]);
+            Serial.println(inMessage[3]);
+            if (inMessage[0] == lbuInterrupt) {
+                Serial.println("interrupted");
+                interrupt++;
+                state = 0;       // resume previous request
+                Radio.switchChannel(0);
+                outMessage[0] = cpeRequest;
                 outMessage[1] = 0;
-                outMessage[2] = 0;
-                outMessage[3] = 0;
-                Radio.sendMessage(cpeSendDuration, outMessage);
-                Radio.receiveMessage(cpeReceiveMaxDuration, inMessage);
-                e++;
+                outMessage[2] = userID;
+                outMessage[3] = requestTarget%numClient; // translate to client ID
+                digitalWrite(LED2, LOW); // LED1 off indicate state 0
             }
-            else if (inMessage[0] == cpeClose || e == receiveExpired) {
-                Radio.switchChannel(0);             // switch back to default ch to setup session
-                state == 0;
-                break;
+            else if (inMessage[0] == cpeSend) {
+                Serial.println("receive send");
+                e = 0;   // refresh timer
             }
-        }
-        else {
-            continue;
+            else if (e > timeExpired || inMessage[0] == cpeDone) {
+                state = 0;       // resume previous request
+                Radio.switchChannel(0);
+                outMessage[0] = cpeRequest;
+                outMessage[1] = 0;
+                outMessage[2] = userID;
+                outMessage[3] = requestTarget%numClient; // translate to client ID
+                Serial.println("receive expired or receive done");
+                digitalWrite(LED2, LOW); // LED1 off indicate state 0
+            }
+            e++;
         }
     }
 }
@@ -181,7 +233,10 @@ void cpe_process() {
 void setup()
 {
     Serial.begin(9600);
-
+    pinMode(LED1,OUTPUT);
+    pinMode(LED2,OUTPUT);
+    digitalWrite(LED1, LOW);
+    digitalWrite(LED2, LOW);
     //  initialize tx rx
     Radio.initialize_trans();
 }
@@ -189,7 +244,9 @@ void setup()
 void loop() {
 
     if (operation == 0) {
-        connectBaseStation();
+        //digitalWrite(LED1, HIGH); // blue lighton indicate on operation 0
+        //connectBaseStation();
+        //digitalWrite(LED1, LOW); // blue lightout indicate finish connect and start process
         cpe_process();
         operation = 3;
     }
@@ -198,13 +255,10 @@ void loop() {
     }
     else if (operation == 2) {
         // print
-        TEST.report();
+        Test.report();
         operation = 3;
     }
     else {
-        continue;
+        ;
     }
 }
-
-
-

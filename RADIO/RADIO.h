@@ -13,37 +13,36 @@
 #define cpeRequest 1
 #define cpeRespond 2
 #define cpeSend 3
-#define cpeAckowledge 4
+#define cpeAcknowledge 4
 #define bsRequest 5
 #define bsRespond 6
-#define cpeStart 7s
+#define cpeStart 7
 #define cpeDone 9
 #define cpeClose 10
 #define lbuStart 11
 #define bsStart 12
-#define bsAckowledge 13
+#define bsAcknowledge 13
 #define lbuInterrupt 8
 
 
 // FOR TRANSMIT
 #define tx_time 3                // tx time in milli seconds
-#define bsSendDuration 50
-#define cpeSendDuration 50
-#define lbuSendDuration 50
+#define shortSendDuration 30
+#define longSendDuration 200
 
 // FOR RECEIVE
-#define receiveExpired 3
+#define timeExpired 3
 #define rx_time 5                // rx time in milli seconds
-#define bsReceiveMaxDuration 50
-#define cpeReceiveMaxDuration 500
-#define lbuReceiveMaxDuration 500
+#define shortReceiveMaxDuration 50
+#define longReceiveMaxDuration 500
 #define cpeSenseDuration 50
-#define LBU 2
 #define CPE 1
+#define LBU 2
 #define BS 0
+#define ANY 3
 
 // WAIT TIME, PRIME NUMBER x10
-#define waitTime { 20,30,50,70,110,130,170,190,230,290,310,370,410,430,470,530 }
+const int waitTime[5] = {200,300,500,700,1100};
 
 class RADIO
 {
