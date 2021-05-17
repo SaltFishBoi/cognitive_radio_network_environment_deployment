@@ -3,8 +3,10 @@
     "",
     "\\base_station",
     "\\customer_premise_equipment",
-    "\\licensed_band_user"
+    "\\licensed_band_user",
+    "\\RADIO",
+    "\\TEST"
   ],
-  "SelectedNode": "\\TEST.h",
+  "SelectedNode": "\\licensed_band_user\\licensed_band_user.ino",
   "PreviewInSolutionExplorer": false
 }
